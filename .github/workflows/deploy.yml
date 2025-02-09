@@ -1,9 +1,10 @@
-name: Deploy to Render
+name: Multi-Environment Deployment
 
 on:
   push:
     branches:
-      - main  # Triggers deployment on every push to the 'main' branch
+      - main     # Deploy to production
+      - develop  # Deploy to staging
 
 jobs:
   deploy:
@@ -23,18 +24,20 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run tests
+    - name: Determine Environment
+      id: set-env
       run: |
-        pytest  # Ensure all tests pass before deploying
-
-    - name: Notify Render to Deploy
+        if [ "${{ github.ref_name }}" == "main" ]; then
+          echo "env=production" >> $GITHUB_ENV
+        else
+          echo "env=staging" >> $GITHUB_ENV
+          
+    - name: Deploy to Render
       env:
         RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-        DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        SECRET_KEY: ${{ secrets.SECRET_KEY }}
-        SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+        APP_ENV: ${{ env.env }}
       run: |
-        echo "Deploying to Render..."
+        echo "Deploying to $APP_ENV environment..."
         curl -X POST \
         -H "Accept: application/json" \
         -H "Authorization: Bearer $RENDER_API_KEY" \

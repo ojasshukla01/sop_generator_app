@@ -1,8 +1,8 @@
 from fastapi import File, UploadFile, APIRouter, FileResponse, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from database.connection import SessionLocal
-from database.models import SOP
+from database import SessionLocal
+from models import SOP
 from services.email_service import send_email
 from services.grammar_checker import check_grammar
 from auth.jwt_handler import verify_access_token
