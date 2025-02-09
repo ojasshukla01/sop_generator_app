@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-docx
+psycopg2-binary
+aiofiles
+jinja2
+passlib
+python-jose
+python-multipart
+requests
