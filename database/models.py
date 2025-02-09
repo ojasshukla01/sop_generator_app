@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Text, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime, UTC
 from database import Base
 
 class User(Base):
@@ -9,10 +10,12 @@ class User(Base):
     hashed_password = Column(String)
     role = Column(String, default="student")
     
+Base = declarative_base()
+
 class SOP(Base):
     __tablename__ = "sops"
+    
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    content = Column(Text)
-    created_at = Column(DateTime)
-    user = relationship("User")
+    user_email = Column(String, index=True)
+    sop_content = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))

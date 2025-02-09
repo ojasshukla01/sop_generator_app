@@ -2,8 +2,10 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+ # Load environment variables from .env file (if available)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/sop_db")
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+DATABASE_URL = os.environ.get("postgresql://sop_app_user:R3yIrYmWSruauVUPL9Hghysi4ZVD6gba@dpg-cuk0ec5ds78s739jqqug-a/sop_app")
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
