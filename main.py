@@ -1,16 +1,17 @@
 import sentry_sdk
-from sentry_sdk.integrations.starlette import StarletteIntegration  # Correct integration for FastAPI
+from sentry_sdk.integrations.starlette import StarletteIntegration
+import os
 from fastapi import FastAPI
 
-# Initialize Sentry with StarletteIntegration
+# Initialize Sentry with DSN from environment variables
 sentry_sdk.init(
-    dsn="https://your-sentry-dsn",
+    dsn=os.environ.get("SENTRY_DSN"),  # Use the DSN from your environment
     integrations=[StarletteIntegration()],
-    traces_sample_rate=1.0  # Adjust sampling rate as needed
+    traces_sample_rate=1.0  # Adjust sampling rate for performance monitoring
 )
 
 app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello, Sentry is integrated!"}
+    return {"message": "Sentry is integrated successfully!"}
