@@ -43,10 +43,10 @@ def grammar_check(text: str):
     return {"grammar_issues": result['matches']}
 
 @router.post("/upload-sop")
-async def upload_sop(file: UploadFile = File(...)):
-    async with aiofiles.open(f"uploads/{file.filename}", "wb") as out_file:
-        content = await file.read()
-        await out_file.write(content)
+def upload_sop(file: UploadFile = File(...)):
+    with open(f"uploads/{file.filename}", "wb") as out_file:
+        content = file.file.read()
+        out_file.write(content)
     return {"filename": file.filename}
 
 @router.get("/download-sop/{filename}")
