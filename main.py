@@ -1,19 +1,16 @@
 import sentry_sdk
-from sentry_sdk.integrations.asgi import ASGIIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration  # Correct integration for FastAPI
 from fastapi import FastAPI
-from prometheus_fastapi_instrumentator import Instrumentator
 
+# Initialize Sentry with StarletteIntegration
 sentry_sdk.init(
     dsn="https://your-sentry-dsn",
-    integrations=[ASGIIntegration()],
-    traces_sample_rate=1.0  # Adjust this for sampling traces
+    integrations=[StarletteIntegration()],
+    traces_sample_rate=1.0  # Adjust sampling rate as needed
 )
 
 app = FastAPI()
 
-# Initialize Prometheus metrics
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
-
 @app.get("/")
 def read_root():
-    return {"message": "Hello, World!"}
+    return {"message": "Hello, Sentry is integrated!"}
