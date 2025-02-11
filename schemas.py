@@ -34,3 +34,4 @@ class SOPRequest(BaseModel):
     purposeStatement: str
     academicInfo: List[AcademicInfo]
     experience: List[Experience]
+

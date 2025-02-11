@@ -13,14 +13,11 @@ from schemas import SOPRequest
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import pytz
-from sqlalchemy import inspect
+from models import SOPRecord
+
 
 # Create tables if they don't exist
 models.Base.metadata.create_all(bind=engine)
-
-inspector = inspect(engine)
-if not inspector.has_table("sop_records"):
-    Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -115,16 +112,6 @@ class SOPRequest(BaseModel):
     academicInfo: List[AcademicInfo]
     experience: List[Experience]
 
-class SOPRecord(models.Base):
-    __tablename__ = "sop_records"
-    id = Column(Integer, primary_key=True, index=True)
-    full_name = Column(String, nullable=False)
-    purpose_statement = Column(Text, nullable=False)
-    sop_content = Column(Text, nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    user = relationship("User")
-    created_at = Column(DateTime, default=lambda: datetime.now(pytz.UTC))
-
 # Authentication endpoint (Login)
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -179,7 +166,8 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         return user
     except JWTError as e:
         logger.error(f"Token decoding error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Token is either expired or invalid.")
+
 
 # CRUD operations for user management with pagination and filtering
 @app.get("/users/", response_model=list[UserResponse])
@@ -229,23 +217,25 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 # SOP generation endpoint
 @app.post("/generate_sop")
 async def generate_sop(request: SOPRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    logger.info(f"Generating SOP for {request.fullName}")
+    logger.info(f"Request data: {request.dict()}")
     
-    # Here you would generate the SOP content (simplified)
-    sop_content = f"Dear Admissions Committee, my name is {request.fullName}. Here is my SOP content."
+    try:
+        sop_content = f"Dear Admissions Committee, my name is {request.fullName}. Here is my SOP content."
+        
+        sop_record = models.SOPRecord(
+            full_name=request.fullName,
+            purpose_statement=request.purposeStatement,
+            sop_content=sop_content,
+            user_id=current_user.id
+        )
+        db.add(sop_record)
+        db.commit()
+        return {"message": "SOP generated successfully!", "sop_content": sop_content}
+    
+    except Exception as e:
+        logger.error(f"Error generating SOP: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate SOP. Please try again.")
 
-    # Save the SOP to the database
-    sop_record = models.SOPRecord(
-        full_name=request.fullName,
-        purpose_statement=request.purposeStatement,
-        sop_content=sop_content,
-        user_id=current_user.id
-    )
-    db.add(sop_record)
-    db.commit()
-
-    # Return the SOP content in response
-    return {"message": "SOP generated successfully!", "sop_content": sop_content}
 
 @app.get("/")
 def read_root():
@@ -254,7 +244,6 @@ def read_root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
 
 
 
