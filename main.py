@@ -14,7 +14,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import pytz
 from models import SOPRecord
+from openai import OpenAI # Add this to your FastAPI project
+from fpdf import FPDF  # For PDF generation
+from docx import Document  # For DOCX generation
+from fastapi.responses import FileResponse
+from dotenv import load_dotenv
+import os
+import openai
 
+# Load the .env file
+load_dotenv()
+
+# Set the OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    messages=[{"role": "user", "content": "Hello, generate a sample SOP"}]
+)
+print(response['choices'][0]['message']['content'])
 
 # Create tables if they don't exist
 models.Base.metadata.create_all(bind=engine)
@@ -215,13 +233,38 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
     return {"message": "User deleted successfully"}
 
 # SOP generation endpoint
+def generate_sop_with_chatgpt(request: SOPRequest):
+    prompt = f"""
+    Write a personalized SOP for a student applying for a {request.purposeStatement} program at an international university. 
+    Here is the student information:
+    - Full Name: {request.fullName}
+    - Academic Information: {', '.join([f"{info.degree} from {info.university} in {info.year} with GPA {info.gpa}" for info in request.academicInfo])}
+    - Work Experience: {', '.join([f"{exp.role} at {exp.company} for {exp.duration}" for exp in request.experience])}
+    
+    Keep the tone professional and warm. The SOP should be 700-1000 words long.
+    """
+
+    response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant for generating SOPs."},
+        {"role": "user", "content": "Write a detailed SOP for the following student application."}
+    ],
+    max_tokens=1000,
+    temperature=0.7
+)
+    generated_text = response['choices'][0]['message']['content']
+    return generated_text
+
+
+
 @app.post("/generate_sop")
 async def generate_sop(request: SOPRequest, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
-    logger.info(f"Request data: {request.dict()}")
-    
     try:
-        sop_content = f"Dear Admissions Committee, my name is {request.fullName}. Here is my SOP content."
-        
+        # Generate SOP content using ChatGPT
+        sop_content = generate_sop_with_chatgpt(request)
+
+        # Create SOPRecord
         sop_record = models.SOPRecord(
             full_name=request.fullName,
             purpose_statement=request.purposeStatement,
@@ -229,12 +272,87 @@ async def generate_sop(request: SOPRequest, db: Session = Depends(get_db), curre
             user_id=current_user.id
         )
         db.add(sop_record)
+        db.flush()  # This will populate sop_record.id with the new record's ID
+
+        # Add academic info
+        for info in request.academicInfo:
+            academic = models.AcademicInfo(
+                degree=info.degree,
+                university=info.university,
+                year=info.year,
+                gpa=info.gpa,
+                sop_record_id=sop_record.id  # Associate with the newly created SOPRecord
+            )
+            db.add(academic)
+
+        # Add experience
+        for exp in request.experience:
+            experience = models.Experience(
+                role=exp.role,
+                company=exp.company,
+                duration=exp.duration,
+                description=exp.description,
+                sop_record_id=sop_record.id  # Associate with the newly created SOPRecord
+            )
+            db.add(experience)
+
+        # Commit all changes
         db.commit()
+        logging.info(f"SOP saved with academic info and experience for user: {current_user.username}")
+
         return {"message": "SOP generated successfully!", "sop_content": sop_content}
     
     except Exception as e:
-        logger.error(f"Error generating SOP: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate SOP. Please try again.")
+        db.rollback()  # Rollback in case of any error
+        logging.error(f"Error generating SOP: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate SOP.")
+
+    
+
+@app.post("/download_sop")
+async def download_sop(sop_content: str = Body(...), format: str = "pdf"):
+    try:
+        filename = f"sop.{format}"
+        if format == "pdf":
+            save_as_pdf(sop_content, filename)
+        elif format == "docx":
+            save_as_docx(sop_content, filename)
+        elif format == "txt":
+            save_as_txt(sop_content, filename)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid format")
+        
+        return FileResponse(filename, media_type="application/octet-stream", filename=filename)
+    except Exception as e:
+        logging.error(f"Error generating file: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate the file.")
+    finally:
+        if os.path.exists(filename):
+            os.remove(filename)  # Clean up the temporary file
+
+    
+
+# Generate PDF
+def save_as_pdf(sop_content, filename="sop.pdf"):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 10, sop_content)
+    pdf.output(filename)
+    return filename
+
+# Generate DOCX
+def save_as_docx(sop_content, filename="sop.docx"):
+    doc = Document()
+    doc.add_paragraph(sop_content)
+    doc.save(filename)
+    return filename
+
+# Generate TXT
+def save_as_txt(sop_content, filename="sop.txt"):
+    with open(filename, "w") as txt_file:
+        txt_file.write(sop_content)
+    return filename
 
 
 @app.get("/")
