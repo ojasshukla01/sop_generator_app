@@ -30,10 +30,7 @@ class Experience(BaseModel):
     description: str
 
 class SOPRequest(BaseModel):
-    full_name: str
-    email: EmailStr
-    dob: date
-    contact_number: str
-    academic_info: List[AcademicInfo]
+    fullName: str
+    purposeStatement: str
+    academicInfo: List[AcademicInfo]
     experience: List[Experience]
-    purpose_statement: str

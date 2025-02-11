@@ -180,6 +180,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 # SOP generation endpoint
 @app.post("/generate_sop")
 async def generate_sop(request: SOPRequest, db: Session = Depends(get_db)):
-    logger.info(f"Received SOP request for: {request.full_name}")
-    sop_content = f"Dear Admissions Committee,\n\nMy name is {request.full_name}...\n"
-    return {"message": "SOP generated successfully!", "sop_content": sop_content}
+    logger.info(f"Generating SOP for: {request.fullName}")
+    # Process the request and return a response
+    return {"message": "SOP generated successfully!", "sop_content": "Generated SOP content here"}
+
