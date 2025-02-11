@@ -247,6 +247,14 @@ async def generate_sop(request: SOPRequest, db: Session = Depends(get_db), curre
     # Return the SOP content in response
     return {"message": "SOP generated successfully!", "sop_content": sop_content}
 
+@app.get("/")
+def read_root():
+    return {"message": "Welcome to the SOP Generator API!"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 
 
 
