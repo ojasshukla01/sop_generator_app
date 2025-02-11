@@ -10,6 +10,7 @@ import models
 import logging
 from schemas import SOPRequest
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List
 
 # Create tables if they don't exist
 models.Base.metadata.create_all(bind=engine)
@@ -88,6 +89,24 @@ class UserResponse(BaseModel):
     hashed_password: str
     class Config:
         orm_mode = True
+
+class AcademicInfo(BaseModel):
+    degree: str
+    university: str
+    year: str
+    gpa: str
+
+class Experience(BaseModel):
+    role: str
+    company: str
+    duration: str
+    description: str
+
+class SOPRequest(BaseModel):
+    fullName: str
+    purposeStatement: str
+    academicInfo: List[AcademicInfo]
+    experience: List[Experience]
 
 # Authentication endpoint (Login)
 @app.post("/token", response_model=Token)
@@ -179,8 +198,6 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
 # SOP generation endpoint
 @app.post("/generate_sop")
-async def generate_sop(request: SOPRequest, db: Session = Depends(get_db)):
-    logger.info(f"Generating SOP for: {request.fullName}")
-    # Process the request and return a response
-    return {"message": "SOP generated successfully!", "sop_content": "Generated SOP content here"}
+async def generate_sop(request: SOPRequest):
+    return {"message": "SOP generated successfully!", "sop_content": "Here is your SOP content"}
 
