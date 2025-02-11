@@ -92,11 +92,22 @@ class UserResponse(BaseModel):
 # Authentication endpoint (Login)
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    logger.info(f"Attempting login for username: {form_data.username}")
+    
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or user.plain_password != form_data.password:
+    if not user:
+        logger.error(f"User not found: {form_data.username}")
         raise HTTPException(status_code=401, detail="Incorrect username or password")
+    
+    if user.plain_password != form_data.password:
+        logger.error(f"Password mismatch for username: {form_data.username}")
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    
     access_token = create_access_token(data={"sub": user.username})
+    logger.info(f"Login successful for username: {form_data.username}")
     return {"access_token": access_token, "token_type": "bearer"}
+
+
 
 
 # User registration endpoint
