@@ -19,7 +19,7 @@ app = FastAPI()
 # Middleware for CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Allow your frontend origin
+    allow_origins=["http://localhost:5173"],  # Adjust for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,13 +45,12 @@ def get_db():
         db.close()
 
 # Utility functions for authentication
-# def hash_password(password: str) -> str:
-#     return pwd_context.hash(password)
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
-# Utility function to create access token
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
@@ -71,7 +70,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-# User registration schema
+# Pydantic models
 class UserRegister(BaseModel):
     username: str
     email: str
@@ -85,24 +84,19 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: str
-    plain_password: str  # Return the plain-text password as well
+    plain_password: str
+    hashed_password: str
     class Config:
         orm_mode = True
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
 
 # Authentication endpoint (Login)
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or user.hashed_password != form_data.password:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    access_token = jwt.encode({"sub": user.username, "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)}, SECRET_KEY, algorithm=ALGORITHM)
+    if not user or user.plain_password != form_data.password:
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
-
 
 
 # User registration endpoint
@@ -111,10 +105,18 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    new_user = models.User(username=user.username, email=user.email, hashed_password=user.password)
+    
+    new_user = models.User(
+        username=user.username,
+        email=user.email,
+        plain_password=user.password,
+        hashed_password=hash_password(user.password)
+    )
     db.add(new_user)
     db.commit()
-    return {"message": "User registered successfully"}
+    db.refresh(new_user)
+    return new_user
+
 
 # Get current user info
 @app.get("/users/me", response_model=UserResponse)
